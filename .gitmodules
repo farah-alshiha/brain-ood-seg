@@ -1,0 +1,6 @@
+[submodule "external/openmibood"]
+	path = external/openmibood
+	url = https://github.com/remic-othr/OpenMIBOOD.git
+[submodule "external/brainmvp"]
+	path = external/brainmvp
+	url = https://github.com/shaohao011/BrainMVP.git
