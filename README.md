@@ -103,7 +103,7 @@ python3 -m src.train.train_unet2d \
 
 Clone repository:
 ```
-!git clone https://github.com/<your-username>/brain-ood-seg.git
+!git clone https://github.com/farah-alshiha/brain-ood-seg.git
 %cd brain-ood-seg
 ```
 
@@ -115,7 +115,7 @@ Install dependencies:
 Train:
 ```
 !python3 -m src.train.train_unet2d \
-  --train_images "/path_to_brats/train/images" \
+  --train_images "/path_to_brats/train/images" \ # change paths for first four args
   --train_masks  "/path_to_brats/train/masks" \
   --val_images   "/path_to_brats/val/images" \
   --val_masks    "/path_to_brats/val/masks" \
