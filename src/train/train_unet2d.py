@@ -1,5 +1,6 @@
 import argparse
 from pathlib import Path
+from tqdm import tqdm
 
 import torch
 from torch.utils.data import DataLoader
@@ -30,8 +31,11 @@ def parse_args():
 def train_one_epoch(model, loader, opt, device):
     model.train()
     tot_loss, tot_dice = 0.0, 0.0
-    for x, y, _ in loader:
+
+    pbar = tqdm(loader, desc="Train", leave=False)
+    for x, y, _ in pbar:
         x, y = x.to(device), y.to(device)
+
         logits = model(x)
         loss = bce_dice_loss(logits, y)
 
@@ -39,21 +43,40 @@ def train_one_epoch(model, loader, opt, device):
         loss.backward()
         opt.step()
 
+        dice = dice_coeff_from_logits(logits.detach(), y)
+
         tot_loss += loss.item()
-        tot_dice += dice_coeff_from_logits(logits.detach(), y).item()
+        tot_dice += dice.item()
+
+        pbar.set_postfix({
+            "loss": f"{loss.item():.4f}",
+            "dice": f"{dice.item():.4f}"
+        })
 
     return tot_loss / len(loader), tot_dice / len(loader)
+
 
 @torch.no_grad()
 def eval_one_epoch(model, loader, device):
     model.eval()
     tot_loss, tot_dice = 0.0, 0.0
-    for x, y, _ in loader:
+
+    pbar = tqdm(loader, desc="Val", leave=False)
+    for x, y, _ in pbar:
         x, y = x.to(device), y.to(device)
+
         logits = model(x)
         loss = bce_dice_loss(logits, y)
+        dice = dice_coeff_from_logits(logits, y)
+
         tot_loss += loss.item()
-        tot_dice += dice_coeff_from_logits(logits, y).item()
+        tot_dice += dice.item()
+
+        pbar.set_postfix({
+            "loss": f"{loss.item():.4f}",
+            "dice": f"{dice.item():.4f}"
+        })
+
     return tot_loss / len(loader), tot_dice / len(loader)
 
 def main():
@@ -61,16 +84,35 @@ def main():
     out_dir = Path(args.out_dir)
     out_dir.mkdir(parents=True, exist_ok=True)
 
+    print("\nCreating training dataset...")
     train_ds = BraTSNpy2D(
         args.train_images, args.train_masks,
         mode="binary",
         only_lesion_slices=args.only_lesion_slices,
         lesion_min_pixels=args.lesion_min_pixels
     )
+
+    print("Creating validation dataset...")
     val_ds = BraTSNpy2D(args.val_images, args.val_masks, mode="binary", only_lesion_slices=False)
 
+    print("\nCreating DataLoaders...")
     train_loader = DataLoader(train_ds, batch_size=args.batch, shuffle=True, num_workers=args.num_workers, pin_memory=True)
     val_loader = DataLoader(val_ds, batch_size=args.batch, shuffle=False, num_workers=args.num_workers, pin_memory=True)
+
+    print(f"Train batches: {len(train_loader)}")
+    print(f"Val batches: {len(val_loader)}")
+
+    print("\nRunning first batch sanity check...")
+
+    x, y, meta = next(iter(train_loader))
+
+    print(f"Batch X shape: {x.shape}")
+    print(f"Batch Y shape: {y.shape}")
+    print(f"Sample meta: {meta}")
+    print(f"X dtype: {x.dtype}")
+    print(f"Y unique values: {torch.unique(y)}")
+
+    print("Sanity check complete.\n")
 
     model = UNet2D(in_channels=4, base=args.base).to(args.device)
     opt = torch.optim.AdamW(model.parameters(), lr=args.lr)

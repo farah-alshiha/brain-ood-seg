@@ -67,7 +67,15 @@ class BraTSNpy2D(Dataset):
         if len(self.index) == 0:
             raise RuntimeError("No slices indexed — try lowering lesion_min_pixels or set only_lesion_slices=False")
 
-        print(f"[BraTSNpy2D] Indexed {len(self.index)} slices from {len(self.img_files)} volumes")
+        print("=" * 50)
+        print(f"[BraTSNpy2D]")
+        print(f"Images directory: {self.images_dir}")
+        print(f"Masks directory:  {self.masks_dir}")
+        print(f"Number of volumes: {len(self.img_files)}")
+        print(f"Total slices indexed: {len(self.index)}")
+        print(f"Mode: {self.mode}")
+        print(f"Only lesion slices: {self.only_lesion_slices}")
+        print("=" * 50)
 
     def __len__(self):
         return len(self.index)
