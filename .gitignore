@@ -1,0 +1,14 @@
+# datasets
+*.npy
+*.nii
+*.nii.gz
+data/
+runs/
+__pycache__/
+*.pyc
+.ipynb_checkpoints/
+.DS_Store
+
+# allow src/data code
+!src/data/
+!src/data/**
