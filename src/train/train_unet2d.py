@@ -2,12 +2,53 @@ import argparse
 from pathlib import Path
 from tqdm import tqdm
 
+import json
+import matplotlib.pyplot as plt
+import numpy as np
+
 import torch
 from torch.utils.data import DataLoader
 
 from src.data.brats_npy_2d import BraTSNpy2D
 from src.models.unet2d import UNet2D
-from src.train.losses import bce_dice_loss, dice_coeff_from_logits
+from src.train.losses import bce_dice_loss, dice_coeff_from_logits, save_curves
+
+import torch
+
+@torch.no_grad()
+def save_qualitative_predictions(model, loader, out_dir, device, num_samples=6):
+    out_dir = Path(out_dir)
+    (out_dir / "qual").mkdir(parents=True, exist_ok=True)
+
+    model.eval()
+    saved = 0
+
+    for x, y, meta in loader:
+        x = x.to(device)
+        logits = model(x)
+        probs = torch.sigmoid(logits).cpu().numpy()
+        x_cpu = x.cpu().numpy()
+        y_cpu = y.numpy()
+
+        B = x_cpu.shape[0]
+        for i in range(B):
+            if saved >= num_samples:
+                return
+
+            img = x_cpu[i, 0]
+            gt = y_cpu[i]
+            pred = (probs[i, 0] > 0.5).astype(np.uint8)
+
+            plt.figure(figsize=(10,3))
+            plt.subplot(1,3,1); plt.imshow(img, cmap="gray"); plt.title("Modality 0"); plt.axis("off")
+            plt.subplot(1,3,2); plt.imshow(gt, cmap="gray"); plt.title("GT (binary)"); plt.axis("off")
+            plt.subplot(1,3,3); plt.imshow(img, cmap="gray"); plt.imshow(pred, alpha=0.4); plt.title("Pred overlay"); plt.axis("off")
+
+            fname = f"{meta['file'][i]}_slice{meta['slice'][i]}.png" if isinstance(meta, dict) else f"sample_{saved}.png"
+            plt.savefig(out_dir / "qual" / fname, dpi=200, bbox_inches="tight")
+            plt.close()
+
+            saved += 1
 
 def parse_args():
     ap = argparse.ArgumentParser()
@@ -114,6 +155,13 @@ def main():
 
     print("Sanity check complete.\n")
 
+    history = {
+        "train_loss": [],
+        "train_dice": [],
+        "val_loss": [],
+        "val_dice": [],
+    }
+
     model = UNet2D(in_channels=4, base=args.base).to(args.device)
     opt = torch.optim.AdamW(model.parameters(), lr=args.lr)
 
@@ -124,11 +172,28 @@ def main():
 
         print(f"Epoch {ep:02d} | train_loss={tr_loss:.4f} train_dice={tr_dice:.4f} "
               f"| val_loss={va_loss:.4f} val_dice={va_dice:.4f}")
+        
+        history["train_loss"].append(tr_loss)
+        history["train_dice"].append(tr_dice)
+        history["val_loss"].append(va_loss)
+        history["val_dice"].append(va_dice)
 
         if va_dice > best:
             best = va_dice
             ckpt = out_dir / "best.pt"
             torch.save({"model": model.state_dict(), "args": vars(args)}, ckpt)
+    
+    out_dir = Path(args.out_dir)
+    out_dir.mkdir(parents=True, exist_ok=True)
+
+    with open(out_dir / "history.json", "w") as f:
+        json.dump(history, f, indent=2)
+
+    save_curves(history, out_dir / "curves")
+    print(f"Saved training curves to: {out_dir}")
+
+    save_qualitative_predictions(model, val_loader, out_dir, args.device, num_samples=8)
+    print(f"Saved qualitative predictions to: {out_dir/'qual'}")
 
 if __name__ == "__main__":
     main()
