@@ -2,17 +2,22 @@ import torch
 import torch.nn.functional as F
 import matplotlib.pyplot as plt
 
-def dice_coeff_from_logits(logits, targets, eps=1e-6):
+def dice_coeff_from_logits(logits: torch.Tensor, targets: torch.Tensor, eps: float = 1e-6) -> torch.Tensor:
+    """
+    logits:  [B,1,H,W]
+    targets: [B,H,W] (0/1)
+    """
     probs = torch.sigmoid(logits)
     targets = targets.unsqueeze(1).float()
-    num = 2 * (probs * targets).sum(dim=(2,3))
-    den = (probs + targets).sum(dim=(2,3)) + eps
+    num = 2.0 * (probs * targets).sum(dim=(2, 3))
+    den = (probs + targets).sum(dim=(2, 3)) + eps
     return (num / den).mean()
 
-def bce_dice_loss(logits, targets, dice_weight=0.5):
+
+def bce_dice_loss(logits: torch.Tensor, targets: torch.Tensor, dice_weight: float = 0.5) -> torch.Tensor:
     targets_f = targets.unsqueeze(1).float()
-    bce = F.binary_cross_entropy_with_logits(logits, targets_f)
-    dice = 1 - dice_coeff_from_logits(logits, targets)
+    bce = torch.nn.functional.binary_cross_entropy_with_logits(logits, targets_f)
+    dice = 1.0 - dice_coeff_from_logits(logits, targets)
     return bce + dice_weight * dice
 
 def save_curves(history, out_path_prefix):
