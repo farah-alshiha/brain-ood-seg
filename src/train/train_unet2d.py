@@ -39,8 +39,11 @@ def save_qualitative_predictions(model, loader, out_dir, device, num_samples=6):
             gt = y_cpu[i]
             pred = (probs[i, 0] > 0.5).astype(np.uint8)
 
-            print("GT lesion pixels:", gt.sum())
+            print("\nGT lesion pixels:", gt.sum())
             print("Pred lesion pixels:", pred.sum())
+
+            print("\nGT shape:", gt.shape, "unique:", np.unique(gt)[:10])
+            print("Pred shape:", pred.shape, "unique:", np.unique(pred)[:10])
 
             plt.figure(figsize=(10,3))
             plt.subplot(1,3,1); plt.imshow(img, cmap="gray"); plt.title("Modality 0"); plt.axis("off")
