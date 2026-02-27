@@ -14,9 +14,9 @@ def dice_coeff_from_logits(logits: torch.Tensor, targets: torch.Tensor, eps: flo
     return (num / den).mean()
 
 
-def bce_dice_loss(logits: torch.Tensor, targets: torch.Tensor, dice_weight: float = 0.5) -> torch.Tensor:
+def bce_dice_loss(logits: torch.Tensor, targets: torch.Tensor, bce_loss_fn, dice_weight: float = 0.5) -> torch.Tensor:
     targets_f = targets.unsqueeze(1).float()
-    bce = torch.nn.functional.binary_cross_entropy_with_logits(logits, targets_f)
+    bce = bce_loss_fn(logits, targets_f)
     dice = 1.0 - dice_coeff_from_logits(logits, targets)
     return bce + dice_weight * dice
 
