@@ -136,9 +136,9 @@ def train_one_epoch(
     loader: DataLoader,
     opt: torch.optim.Optimizer,
     device: torch.device,
+    bce_loss_fn,
     use_amp: bool,
     scaler: torch.cuda.amp.GradScaler | None,
-    bce_loss_fn,
 ) -> Tuple[float, float]:
     model.train()
     tot_loss, tot_dice = 0.0, 0.0
@@ -449,7 +449,7 @@ def main():
     best_epoch = -1
 
     for ep in range(1, args.epochs + 1):
-        tr_loss, tr_dice = train_one_epoch(model, train_loader, opt, device, use_amp, scaler)
+        tr_loss, tr_dice = train_one_epoch(model, train_loader, opt, device, bce_loss_fn, use_amp, scaler)
         va_loss, va_dice_all, va_dice_tumor, va_metrics = eval_one_epoch(model, val_loader, device, bce_loss_fn, thresh=0.5)
 
         history["train_loss"].append(tr_loss)
