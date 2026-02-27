@@ -439,10 +439,9 @@ def main():
     history: Dict[str, list] = {
         "train_loss": [],
         "train_dice": [],
-        "val_precision": [],
-        "val_recall": [],
-        "val_iou": [],
-        "val_empty_fp_rate": [],
+        "val_loss": [],
+        "val_dice": [],
+        "val_dice_tumor": [],
     }
 
     best = -1.0
@@ -454,10 +453,13 @@ def main():
 
         history["train_loss"].append(tr_loss)
         history["train_dice"].append(tr_dice)
-        history["val_precision"].append(va_metrics["precision"])
-        history["val_recall"].append(va_metrics["recall"])
-        history["val_iou"].append(va_metrics["iou"])
-        history["val_empty_fp_rate"].append(va_metrics["empty_fp_rate"])
+        history["val_loss"].append(va_loss)
+        history["val_dice"].append(va_dice_all)
+        history["val_dice_tumor"].append(va_dice_tumor)
+        history.setdefault("val_precision", []).append(va_metrics["precision"])
+        history.setdefault("val_recall", []).append(va_metrics["recall"])
+        history.setdefault("val_iou", []).append(va_metrics["iou"])
+        history.setdefault("val_empty_fp_rate", []).append(va_metrics["empty_fp_rate"])
 
         print(
             f"Epoch {ep:02d} | "
