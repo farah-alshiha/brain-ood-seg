@@ -172,7 +172,6 @@ def train_one_epoch(
 
     return tot_loss / len(loader), tot_dice / len(loader)
 
-
 @torch.no_grad()
 def eval_one_epoch(model, loader, device, bce_loss_fn, thresh=0.5):
     model.eval()
@@ -238,7 +237,6 @@ def eval_one_epoch(model, loader, device, bce_loss_fn, thresh=0.5):
         "TP": TP, "FP": FP, "FN": FN, "TN": TN,
     }
     return avg_loss, avg_dice_all, avg_dice_tumor, metrics
-
 
 @torch.no_grad()
 def save_qualitative_predictions(
