@@ -35,6 +35,16 @@ class BraTSNpy2D(Dataset):
         validate_files: bool = True,       # sanity-check a few files at init
         cache_volumes: bool = False,       # optional caching (safe in single-worker; see note)
         verbose: bool = True,
+        augment: bool = False,
+        aug_p: float = 0.8,
+        flip_p: float = 0.5,
+        rot90_p: float = 0.5,
+        intensity_p: float = 0.8,
+        noise_p: float = 0.5,
+        gamma_p: float = 0.5,
+        noise_std: float = 0.03,
+        gamma_range: tuple[float, float] = (0.7, 1.5),
+        intensity_range: tuple[float, float] = (0.9, 1.1),
     ):
         self.images_dir = Path(images_dir)
         self.masks_dir = Path(masks_dir)
@@ -47,6 +57,17 @@ class BraTSNpy2D(Dataset):
         self.validate_files = bool(validate_files)
         self.cache_volumes = bool(cache_volumes)
         self.verbose = bool(verbose)
+        self.augment = augment
+        self.aug_p = float(aug_p)
+        self.flip_p = float(flip_p)
+        self.rot90_p = float(rot90_p)
+        self.intensity_p = float(intensity_p)
+        self.noise_p = float(noise_p)
+        self.gamma_p = float(gamma_p)
+        self.noise_std = float(noise_std)
+        self.gamma_range = gamma_range
+        self.intensity_range = intensity_range
+        self._rng = np.random.default_rng(self.seed)
 
         if self.mode not in {"binary", "multilabel"}:
             raise ValueError("mode must be 'binary' or 'multilabel'")
@@ -182,6 +203,12 @@ class BraTSNpy2D(Dataset):
         if self.mode == "binary":
             # Union over channels 1..3 (exclude channel 0 foreground/brain mask)
             y = (m_sl[..., 1:] > 0.5).any(axis=-1).astype(np.int64)  # (H,W)
+            x_np = np.moveaxis(x_sl, -1, 0).astype(np.float32)       # [4,H,W]
+
+            if self.augment:
+                x_np, y = self._augment_xy(x_np, y)
+
+            x_t = torch.from_numpy(x_np)
             y_t = torch.from_numpy(y)
             if y_t.ndim != 2:
                 raise ValueError(f"Binary y expected [H,W]. Got {tuple(y_t.shape)} from {mask_path.name} slice {s}")
@@ -194,3 +221,57 @@ class BraTSNpy2D(Dataset):
 
         meta = {"file": img_path.name, "slice": int(s)}
         return x_t, y_t, meta
+    
+    def _augment_xy(self, x: np.ndarray, y: np.ndarray):
+        """
+        x: [4,H,W] float32
+        y: [H,W] int64 (binary) OR [3,H,W] float32 (multilabel)
+        Returns augmented (x,y) with spatial ops applied to both, intensity ops to x only.
+        """
+        rng = self._rng
+
+        if rng.random() > self.aug_p:
+            return x, y
+
+        # Random horizontal flip
+        if rng.random() < self.flip_p:
+            x = x[:, :, ::-1].copy()
+            if y.ndim == 2:
+                y = y[:, ::-1].copy()
+            else:
+                y = y[:, :, ::-1].copy()
+
+        # Random vertical flip
+        if rng.random() < self.flip_p:
+            x = x[:, ::-1, :].copy()
+            if y.ndim == 2:
+                y = y[::-1, :].copy()
+            else:
+                y = y[:, ::-1, :].copy()
+
+        # Random 90-degree rotations (0,1,2,3)
+        if rng.random() < self.rot90_p:
+            k = int(rng.integers(0, 4))
+            if k != 0:
+                x = np.rot90(x, k=k, axes=(1, 2)).copy()
+                if y.ndim == 2:
+                    y = np.rot90(y, k=k, axes=(0, 1)).copy()
+                else:
+                    y = np.rot90(y, k=k, axes=(1, 2)).copy()
+
+        if rng.random() < self.intensity_p:
+            scale = rng.uniform(self.intensity_range[0], self.intensity_range[1])
+            x = x * scale
+
+        if rng.random() < self.gamma_p:
+            g = rng.uniform(self.gamma_range[0], self.gamma_range[1])
+            # keep in [0,1] assumption
+            x = np.clip(x, 0.0, 1.0)
+            x = x ** g
+
+        if rng.random() < self.noise_p:
+            n = rng.normal(0.0, self.noise_std, size=x.shape).astype(np.float32)
+            x = x + n
+
+        x = np.clip(x, 0.0, 1.0)
+        return x, y

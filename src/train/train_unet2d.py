@@ -371,6 +371,7 @@ def main():
         max_empty_per_volume=args.max_empty_per_volume,
         seed=args.seed,
         verbose=True,
+        augment=True,
     )
 
     print("\nCreating validation dataset...")
@@ -381,6 +382,7 @@ def main():
         only_lesion_slices=False,
         seed=args.seed,
         verbose=True,
+        augment=False,
     )
 
     print("\nCreating DataLoaders...")
@@ -404,7 +406,7 @@ def main():
     test_loader = None
     if args.test_images and args.test_masks:
         print("\nCreating test dataset/loader...")
-        test_ds = BraTSNpy2D(args.test_images, args.test_masks, mode="binary", only_lesion_slices=False, seed=args.seed, verbose=True)
+        test_ds = BraTSNpy2D(args.test_images, args.test_masks, mode="binary", only_lesion_slices=False, seed=args.seed, verbose=True, augment=False)
         test_loader = DataLoader(
             test_ds, batch_size=args.batch, shuffle=False,
             num_workers=args.num_workers, pin_memory=(device.type == "cuda"),
